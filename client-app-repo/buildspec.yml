@@ -1,0 +1,26 @@
+version: 0.2
+env:
+  variables:
+    ECR_REPO_NAME: client-app
+  # parameter-store:
+  #   DOCKERHUB_TOKEN: /dockerhub/token
+  #   DOCKERHUB_USER: /dockerhub/user
+phases:
+  pre_build:
+    commands:
+      - ECR_MAIN_URI="${AWS_ACCOUNT_ID}.dkr.ecr.ap-southeast-1.amazonaws.com"
+      - aws ecr get-login-password --region ap-southeast-1 | docker login --username AWS --password-stdin ${ECR_MAIN_URI}
+      - ECR_IMAGE_URI="${ECR_MAIN_URI}/${ECR_REPO_NAME}:${CODEBUILD_RESOLVED_SOURCE_VERSION:0:8}"
+  build:
+    commands:
+      - docker build -t client-app:latest .
+  post_build:
+    commands:
+      - docker tag client-app:latest ${ECR_IMAGE_URI}
+      - docker push ${ECR_IMAGE_URI}
+      - printf '[{"name":"client-app", "imageUri":"%s"}]' ${ECR_IMAGE_URI} > imagedefinitions.json
+      - echo Build completed on `date`
+
+artifacts:
+  files:
+    - imagedefinitions.json
